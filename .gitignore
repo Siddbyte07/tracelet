@@ -1,7 +1,7 @@
-<<<<<<< HEAD
+
 .env
 generated_pdfs/
-=======
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -225,4 +225,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
->>>>>>> 2788402ab1faa1c084aa01cf4d94899aa86d1fab
