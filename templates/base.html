@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ brand }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head><body>
+<nav><b>🎓 {{ brand }}</b>
+{% if user %}<a href="/">Dashboard</a><a href="/upload">Upload</a><a href="/students">Students</a>
+<a href="/reports">Reports &amp; Email</a><a href="/share">QR</a><a href="/logout">Logout ({{ user }})</a>{% endif %}</nav>
+<main>{% with m = get_flashed_messages(with_categories=true) %}{% for c, t in m %}<div class="msg {{ c }}">{{ t }}</div>{% endfor %}{% endwith %}
+{% block body %}{% endblock %}</main></body></html>

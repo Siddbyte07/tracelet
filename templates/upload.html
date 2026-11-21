@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block body %}
+<h1>Upload marks sheet</h1><div class="sub">Columns: Roll, Name, Email, then one column per subject. Uploading replaces the previous data.</div>
+{% if errors %}<div class="msg error"><b>Please fix these and upload again:</b><ul>{% for e in errors[:15] %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<div class="card"><form method="post" enctype="multipart/form-data"><input type="file" name="file" accept=".xlsx,.xls" required>
+<button class="btn">Upload &amp; validate</button></form></div>{% endblock %}

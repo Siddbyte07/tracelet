@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<div class="card center" style="max-width:460px;margin:auto"><h1>Scan to open</h1>
+<p class="sub">Point a phone camera at the code</p>
+<img src="/qr.png?u={{ url|urlencode }}" width="280" alt="QR code" style="border-radius:12px;border:1px solid #e0e7ff">
+<p style="word-break:break-all"><b>{{ url }}</b></p>
+{% if local %}<div class="msg warn">This is a <b>local address</b>. It works only for phones on the <b>same Wi-Fi</b> as this PC while the site is running. After hosting online, paste the final address below.</div>{% endif %}
+<form method="get"><input name="u" placeholder="Paste the final website address, e.g. https://yourname.pythonanywhere.com" value="{{ '' if local else url }}">
+<button class="btn">Update QR</button></form><br>
+<a class="btn alt" href="/qr.png?u={{ url|urlencode }}&download=1">⬇ Download QR image</a></div>{% endblock %}

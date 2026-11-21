@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}
+<h1>Students</h1><form><input name="q" value="{{ q }}" placeholder="Search by name or roll..."></form>
+<div class="card"><table><tr><th>Rank</th><th>Roll</th><th>Name</th><th>Total</th><th>%</th><th>Result</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r.Rank }}</td><td>{{ r.Roll }}</td><td>{{ r.Name }}</td><td>{{ r.Total|int }}</td><td>{{ r.Percent }}</td>
+<td><span class="tag {{ 'pass' if r.Pass else 'fail' }}">{{ 'Pass' if r.Pass else 'Fail' }}</span></td>
+<td><a class="rowlink" href="/student/{{ r.Roll }}">View →</a></td></tr>{% endfor %}</table></div>{% endblock %}

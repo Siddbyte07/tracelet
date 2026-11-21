@@ -1,0 +1,8 @@
+flask
+qrcode[pil]
+gunicorn
+pandas
+numpy
+matplotlib
+reportlab
+openpyxl

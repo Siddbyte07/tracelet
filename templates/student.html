@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<h1>{{ row.Name }}</h1><div class="sub">Roll {{ row.Roll }} · {{ row.Email }}</div>
+<div class="grid"><div class="stat c1"><small>Rank</small><h2>{{ e.Rank }}</h2></div><div class="stat c2"><small>Percentage</small><h2>{{ e.Percent }}%</h2></div>
+<div class="stat c4"><small>Total</small><h2>{{ e.Total|int }}</h2></div></div>
+<div class="card"><table><tr><th>Subject</th><th>Marks</th><th>Mean</th><th>Median</th><th>Variance</th><th>vs Mean</th></tr>
+{% for s, m, v in table %}<tr><td><b>{{ s }}</b></td><td>{{ m|int }}</td><td>{{ '%.2f'|format(v['Mean']) }}</td><td>{{ '%.2f'|format(v['Median']) }}</td>
+<td>{{ '%.2f'|format(v['Variance']) }}</td><td>{{ '%+.1f'|format(m - v['Mean']) }}</td></tr>{% endfor %}</table></div><br>
+<div class="charts">{% for s, f in charts %}<div class="card"><img src="{{ url_for('static', filename='charts/' + f) }}" alt="{{ s }}"></div>{% endfor %}</div><br>
+<a class="btn" href="/pdf/{{ row.Roll }}">⬇ Download PDF</a>{% endblock %}

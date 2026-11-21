@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block body %}
+<h1>Dashboard</h1><div class="sub">Class performance at a glance</div>
+{% if empty %}<div class="card center"><h2>No data yet</h2><p>Upload the marks Excel file to begin.</p>
+<a class="btn" href="/upload">Upload Excel</a></div>
+{% else %}
+<div class="grid">
+<div class="stat c1"><small>Students</small><h2>{{ info.students }}</h2></div>
+<div class="stat c2"><small>Class average</small><h2>{{ info.avg }}%</h2></div>
+<div class="stat c3"><small>Pass rate (≥{{ pass_percent|int }}% in every subject)</small><h2>{{ info.pass_pct }}%</h2></div>
+<div class="stat c4"><small>Topper</small><h2 style="font-size:1.3rem">{{ info.topper }} ({{ info.top_pct }}%)</h2></div></div>
+<div class="card"><h2>Subject-wise statistics</h2>
+<table><tr><th>Subject</th><th>Mean</th><th>Median</th><th>Variance</th><th>Std Dev</th><th>High</th><th>Low</th><th>Mean vs full marks</th></tr>
+{% for s, v in stats.items() %}<tr><td><b>{{ s }}</b></td><td>{{ '%.2f'|format(v['Mean']) }}</td><td>{{ '%.2f'|format(v['Median']) }}</td>
+<td>{{ '%.2f'|format(v['Variance']) }}</td><td>{{ '%.2f'|format(v['Std Dev']) }}</td><td>{{ v['Highest']|int }}</td><td>{{ v['Lowest']|int }}</td>
+<td><div class="bar"><i style="width:{{ v['Mean']/max_marks*100 }}%"></i></div></td></tr>{% endfor %}</table></div>
+{% endif %}{% endblock %}
