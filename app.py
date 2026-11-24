@@ -107,36 +107,32 @@ def init_db():
         # Create a default admin account only if no teacher exists
       
 # Create the initial staff account if none exists
-admin_user = os.environ.get("ADMIN_USER", "admin")
-admin_pass = os.environ.get("ADMIN_PASS", "admin123")
+    # Create the initial staff account if none exists
+    admin_user = os.environ.get("ADMIN_USER", "admin")
+    admin_pass = os.environ.get("ADMIN_PASS", "admin123")
 
-existing = c.execute(
-    "SELECT username FROM teachers WHERE username='admin'"
-).fetchone()
+    existing = c.execute(
+        "SELECT username FROM teachers WHERE username=?", 
+        (admin_user,)
+    ).fetchone()
 
-if existing:
-    c.execute(
-        """
-        UPDATE teachers
-        SET username=?, pw=?
-        WHERE username='admin'
-        """,
-        (
-            admin_user,
-            generate_password_hash(admin_pass)
-        )
-    )
+    if not existing:
+        # Check if the username is already taken
+        username_taken = c.execute(
+            "SELECT 1 FROM teachers WHERE username=?", 
+            (admin_user,)
+        ).fetchone()
 
-elif not c.execute("SELECT 1 FROM teachers").fetchone():
-    c.execute(
-        "INSERT INTO teachers VALUES(?, ?)",
-        (
-            admin_user,
-            generate_password_hash(admin_pass)
-        )
-    )
-
+        if not username_taken:
+            c.execute(
+                "INSERT INTO teachers (username, pw) VALUES (?, ?)",
+                (
+                    admin_user,
+                    generate_password_hash(admin_pass)
+                )
             )
+
+            
 
 
 # --------------------------------------------------
