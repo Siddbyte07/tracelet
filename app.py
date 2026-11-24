@@ -105,15 +105,37 @@ def init_db():
             c.execute("UPDATE email_log SET upload_id=? WHERE upload_id IS NULL", (uid,))
 
         # Create a default admin account only if no teacher exists
-        if not c.execute("SELECT 1 FROM teachers").fetchone():
-            c.execute(
-                "INSERT INTO teachers VALUES(?, ?)",
-                (
-                    os.environ.get("ADMIN_USER", "admin"),
-                    generate_password_hash(
-                        os.environ.get("ADMIN_PASS", "admin123")
-                    )
-                )
+      
+# Create the initial staff account if none exists
+admin_user = os.environ.get("ADMIN_USER", "admin")
+admin_pass = os.environ.get("ADMIN_PASS", "admin123")
+
+existing = c.execute(
+    "SELECT username FROM teachers WHERE username='admin'"
+).fetchone()
+
+if existing:
+    c.execute(
+        """
+        UPDATE teachers
+        SET username=?, pw=?
+        WHERE username='admin'
+        """,
+        (
+            admin_user,
+            generate_password_hash(admin_pass)
+        )
+    )
+
+elif not c.execute("SELECT 1 FROM teachers").fetchone():
+    c.execute(
+        "INSERT INTO teachers VALUES(?, ?)",
+        (
+            admin_user,
+            generate_password_hash(admin_pass)
+        )
+    )
+
             )
 
 
