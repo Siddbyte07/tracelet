@@ -1,16 +1,181 @@
-{% extends "base.html" %}{% block body %}
-<h1>Dashboard</h1><div class="sub">Class performance at a glance</div>
-{% if empty %}<div class="card center"><h2>No data yet</h2><p>Upload the marks Excel file to begin.</p>
-<a class="btn" href="/upload">Upload Excel</a></div>
+
+{% extends "base.html" %}
+{% block body %}
+
+<h1>Dashboard</h1>
+<div class="sub">Class performance at a glance</div>
+
+{% if empty %}
+
+<div class="card center">
+    <h2>No data yet</h2>
+    <p>Upload the marks Excel file to begin.</p>
+    <a class="btn" href="/upload">Upload Excel</a>
+</div>
+
 {% else %}
+
+<!-- Dashboard Statistics -->
+
 <div class="grid">
-<div class="stat c1"><small>Students</small><h2>{{ info.students }}</h2></div>
-<div class="stat c2"><small>Class average</small><h2>{{ info.avg }}%</h2></div>
-<div class="stat c3"><small>Pass rate (≥{{ pass_percent|int }}% in every subject)</small><h2>{{ info.pass_pct }}%</h2></div>
-<div class="stat c4"><small>Topper</small><h2 style="font-size:1.3rem">{{ info.topper }} ({{ info.top_pct }}%)</h2></div></div>
-<div class="card"><h2>Subject-wise statistics</h2>
-<table><tr><th>Subject</th><th>Mean</th><th>Median</th><th>Variance</th><th>Std Dev</th><th>High</th><th>Low</th><th>Mean vs full marks</th></tr>
-{% for s, v in stats.items() %}<tr><td><b>{{ s }}</b></td><td>{{ '%.2f'|format(v['Mean']) }}</td><td>{{ '%.2f'|format(v['Median']) }}</td>
-<td>{{ '%.2f'|format(v['Variance']) }}</td><td>{{ '%.2f'|format(v['Std Dev']) }}</td><td>{{ v['Highest']|int }}</td><td>{{ v['Lowest']|int }}</td>
-<td><div class="bar"><i style="width:{{ v['Mean']/max_marks*100 }}%"></i></div></td></tr>{% endfor %}</table></div>
-{% endif %}{% endblock %}
+
+    <div class="stat c1">
+        <small>Students</small>
+        <h2>{{ info.students }}</h2>
+    </div>
+
+    <div class="stat c2">
+        <small>Class Average</small>
+        <h2>{{ info.avg }}%</h2>
+    </div>
+
+    <div class="stat c3">
+        <small>Pass Rate (≥{{ pass_percent|int }}% in every subject)</small>
+        <h2>{{ info.pass_pct }}%</h2>
+    </div>
+
+    <div class="stat c4">
+        <small>Topper</small>
+        <h2 style="font-size:1.3rem">
+            {{ info.topper }}
+            <span style="color:#2dd4bf">
+                ({{ info.top_pct }}%)
+            </span>
+        </h2>
+    </div>
+
+</div>
+
+
+<!-- Subject-wise Statistics -->
+
+<div class="card">
+
+    <h2>Subject-wise Statistics</h2>
+
+    <table>
+
+        <tr>
+            <th>Subject</th>
+            <th>Mean</th>
+            <th>Median</th>
+            <th>Variance</th>
+            <th>Std Dev</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Mean vs Full Marks</th>
+        </tr>
+
+        {% for s, v in stats.items() %}
+
+        <tr>
+
+            <td><b>{{ s }}</b></td>
+
+            <td>{{ '%.2f'|format(v['Mean']) }}</td>
+
+            <td>{{ '%.2f'|format(v['Median']) }}</td>
+
+            <td>{{ '%.2f'|format(v['Variance']) }}</td>
+
+            <td>{{ '%.2f'|format(v['Std Dev']) }}</td>
+
+            <td>{{ v['Highest']|int }}</td>
+
+            <td>{{ v['Lowest']|int }}</td>
+
+            <td>
+                <div class="bar"
+                     title="Mean: {{ '%.2f'|format(v['Mean']) }}">
+
+                    <i style="width:{{ (v['Mean'] / max_marks * 100)|round(1) }}%">
+                    </i>
+
+                </div>
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+
+<!-- Upload History -->
+
+<div class="card">
+
+    <h2>Upload History</h2>
+
+    <table>
+
+        <tr>
+            <th>File Name</th>
+            <th>Uploaded At</th>
+            <th>Students</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+
+        {% for u in history %}
+
+        <tr>
+
+            <td><b>{{ u.filename }}</b></td>
+
+            <td>{{ u.at }}</td>
+
+            <td>{{ u.students }}</td>
+
+            <td>
+
+                {% if u.latest %}
+                    <span class="tag pass">Latest</span>
+                {% else %}
+                    <span class="tag"
+                          style="background:#334155;color:#cbd5e1">
+                        Archive
+                    </span>
+                {% endif %}
+
+                {% if u.viewing %}
+                    <span class="tag"
+                          style="background:rgba(6,182,212,0.2);color:#67e8f9">
+                        Viewing
+                    </span>
+                {% endif %}
+
+            </td>
+
+            <td>
+
+                {% if not u.viewing %}
+                    <a class="rowlink"
+                       href="/view/{{ u.id }}">
+                        View →
+                    </a>
+                {% endif %}
+
+            </td>
+
+        </tr>
+
+        {% else %}
+
+        <tr>
+            <td colspan="5">
+                No upload history available.
+            </td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

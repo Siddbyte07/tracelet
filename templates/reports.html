@@ -1,10 +1,14 @@
 {% extends "base.html" %}{% block body %}
 <h1>Reports &amp; Email</h1><div class="sub">{{ n }} students</div>
+{% if can_send %}
 <div class="grid"><div class="card"><h3>1. Generate PDFs</h3><form method="post"><input type="hidden" name="action" value="pdf">
 <button class="btn alt">Generate all PDFs</button></form></div>
 <div class="card"><h3>2. Email PDFs</h3><form method="post"><input type="hidden" name="action" value="send">
 <input name="test_to" type="email" placeholder="Test address (leave empty to send to students)">
 <button class="btn">Send emails</button></form></div></div>
+{% else %}
+<div class="view-only-note"><strong>View only:</strong> Generating PDFs and sending emails are disabled in the current view.</div>
+{% endif %}
 <div class="card"><h3>Email log</h3><table><tr><th>Student</th><th>Sent to</th><th>Status</th><th>Time</th></tr>
 {% for n, t, s, a in log %}<tr><td>{{ n }}</td><td>{{ t }}</td><td><span class="tag {{ 'pass' if s == 'sent' else 'fail' }}">{{ s[:60] }}</span></td><td>{{ a }}</td></tr>
 {% else %}<tr><td colspan="4">No emails sent yet.</td></tr>{% endfor %}</table></div>{% endblock %}

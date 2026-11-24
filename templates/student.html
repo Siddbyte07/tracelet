@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block body %}
-<h1>{{ row.Name }}</h1><div class="sub">Roll {{ row.Roll }} · {{ row.Email }}</div>
+<h1>{{ row.Name }}</h1><div class="sub">Roll {{ row.Roll }} · {{ row.Email or 'No email id' }}</div>
 <div class="grid"><div class="stat c1"><small>Rank</small><h2>{{ e.Rank }}</h2></div><div class="stat c2"><small>Percentage</small><h2>{{ e.Percent }}%</h2></div>
 <div class="stat c4"><small>Total</small><h2>{{ e.Total|int }}</h2></div></div>
 <div class="card"><table><tr><th>Subject</th><th>Marks</th><th>Mean</th><th>Median</th><th>Variance</th><th>vs Mean</th></tr>

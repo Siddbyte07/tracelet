@@ -107,48 +107,108 @@ def make_chart(df, subject, student_marks, student_name, st, path):
     plt.close(fig)
 
 
+
 def build_pdf(df, subjects, stats, row, pdf_path):
     styles = getSampleStyleSheet()
-    doc = SimpleDocTemplate(pdf_path, pagesize=A4, leftMargin=1.5 * cm,
-                            rightMargin=1.5 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
+
+    doc = SimpleDocTemplate(
+        pdf_path,
+        pagesize=A4,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.5 * cm,
+        bottomMargin=1.5 * cm
+    )
+
     story = []
-    if os.environ.get("INSTITUTION_NAME"):
-        story.append(Paragraph(os.environ["INSTITUTION_NAME"], styles["Heading3"]))
+
+    # TRACELET brand name
+    brand_style = styles["Heading2"]
+    brand_style.alignment = 1
+    brand_style.textColor = colors.HexColor("#2563EB")
+
+    story.append(
+        Paragraph("TRACELET", brand_style)
+    )
+
+    # Main PDF title
+    title_style = styles["Title"]
+    title_style.alignment = 1
+
+    story.append(
+        Paragraph("REPORT CARD", title_style)
+    )
+
     story += [
-        Paragraph("Individual Student Result Analysis", styles["Title"]),
-        Paragraph(f"<b>Name:</b> {row[ID_COLS['name']]} &nbsp;&nbsp; "
-                  f"<b>Roll:</b> {row[ID_COLS['roll']]}", styles["Normal"]),
+        Paragraph(
+            f"<b>Name:</b> {row[ID_COLS['name']]} &nbsp;&nbsp; "
+            f"<b>Roll:</b> {row[ID_COLS['roll']]}",
+            styles["Normal"]
+        ),
         Spacer(1, 12),
     ]
 
-    # summary table
-    table_data = [["Subject", "Your Marks", "Class Mean", "Median", "Variance", "Std Dev", "vs Mean"]]
+    # Existing summary table - unchanged
+    table_data = [
+        ["Subject", "Your Marks", "Class Mean", "Median",
+         "Variance", "Std Dev", "vs Mean"]
+    ]
+
     for s in subjects:
         m, st = row[s], stats[s]
         diff = "-" if pd.isna(m) else f"{m - st['Mean']:+.1f}"
-        table_data.append([s, "-" if pd.isna(m) else f"{m:g}", f"{st['Mean']:.2f}",
-                           f"{st['Median']:.2f}", f"{st['Variance']:.2f}",
-                           f"{st['Std Dev']:.2f}", diff])
+
+        table_data.append([
+            s,
+            "-" if pd.isna(m) else f"{m:g}",
+            f"{st['Mean']:.2f}",
+            f"{st['Median']:.2f}",
+            f"{st['Variance']:.2f}",
+            f"{st['Std Dev']:.2f}",
+            diff
+        ])
+
     t = Table(table_data, repeatRows=1)
+
     t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3182bd")),
+        ("BACKGROUND", (0, 0), (-1, 0),
+         colors.HexColor("#3182bd")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.whitesmoke, colors.white]),
     ]))
+
     story += [t, Spacer(1, 14)]
 
-    # one chart per subject (2 per page)
+    # Existing charts - unchanged
     roll = str(row[ID_COLS["roll"]]).replace("/", "_")
+
     for i, s in enumerate(subjects):
-        chart_path = os.path.join(CHART_DIR, f"{roll}_{s}.png".replace(" ", "_"))
-        make_chart(df, s, row[s], row[ID_COLS["name"]], stats[s], chart_path)
-        story.append(Image(chart_path, width=16 * cm, height=8.2 * cm))
+        chart_path = os.path.join(
+            CHART_DIR,
+            f"{roll}_{s}.png".replace(" ", "_")
+        )
+
+        make_chart(
+            df, s, row[s],
+            row[ID_COLS["name"]],
+            stats[s],
+            chart_path
+        )
+
+        story.append(
+            Image(chart_path, width=16 * cm, height=8.2 * cm)
+        )
+
         story.append(Spacer(1, 8))
+
         if (i + 1) % 2 == 0 and i + 1 < len(subjects):
             story.append(PageBreak())
+
     doc.build(story)
+
 
 
 def send_mail(to_addr, name, pdf_path, user, password,

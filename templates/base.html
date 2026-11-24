@@ -1,9 +1,430 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{ brand }}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head><body>
-<nav><b>🎓 {{ brand }}</b>
-{% if user %}<a href="/">Dashboard</a><a href="/upload">Upload</a><a href="/students">Students</a>
-<a href="/reports">Reports &amp; Email</a><a href="/share">QR</a><a href="/logout">Logout ({{ user }})</a>{% endif %}</nav>
-<main>{% with m = get_flashed_messages(with_categories=true) %}{% for c, t in m %}<div class="msg {{ c }}">{{ t }}</div>{% endfor %}{% endwith %}
-{% block body %}{% endblock %}</main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ brand }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    :root {
+      --bg: #0f172a;          /* Charcoal background */
+      --surface: #1e293b;     /* Slightly lighter charcoal for cards */
+      --surface-hover: #334155;
+      --text: #f8fafc;        /* Off-white text */
+      --muted: #94a3b8;       /* Slate text */
+      --border: #334155;      /* Dark border */
+      --accent: #10b981;      /* Emerald Green */
+      --accent-hover: #059669;
+      --accent-soft: rgba(16, 185, 129, 0.1);
+      --alt: #06b6d4;         /* Electric Cyan */
+      --alt-hover: #0891b2;
+      --banner-bg: #422006;
+      --banner-border: #a16207;
+      --banner-text: #fde047;
+      --pass-bg: rgba(16, 185, 129, 0.2);
+      --pass-text: #34d399;
+      --fail-bg: rgba(239, 68, 68, 0.2);
+      --fail-text: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* RELIANCE BRAND IDENTITY */
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #134e4a, #0f766e);
+      color: #5eead4;
+      border: 1px solid rgba(45, 212, 191, 0.35);
+      border-radius: 11px;
+      font-size: 27px;
+      font-weight: 850;
+      font-family: system-ui, sans-serif;
+      margin-right: 10px;
+      box-shadow: 0 3px 12px rgba(20, 184, 166, 0.15);
+    }
+
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+      gap: 3px;
+    }
+
+    .brand-copy strong {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      color: #f8fafc;
+    }
+
+    .brand-copy small {
+      font-size: 0.65rem;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem 1.1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    nav b {
+      display: flex;
+      align-items: center;
+      margin-right: auto;
+      gap: 0;
+    }
+
+    @media (max-width: 768px) {
+      .brand-mark {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        font-size: 23px;
+      }
+
+      .brand-copy strong {
+        font-size: 0.95rem;
+      }
+
+      .brand-copy small {
+        font-size: 0.58rem;
+      }
+    }
+
+    nav a {
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 500;
+      padding: 0.35rem 0.65rem;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    nav a:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .old-banner {
+      background: var(--banner-bg);
+      border: 1px solid var(--banner-border);
+      color: var(--banner-text);
+      padding: 0.7rem 1.5rem;
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 0 0 0.85rem;
+      font-size: 1.15rem;
+      color: #ffffff;
+    }
+
+    h3 {
+      margin: 0 0 0.65rem;
+      font-size: 1.05rem;
+      color: #ffffff;
+    }
+
+    .sub {
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .center { text-align: center; }
+    .login { max-width: 420px; margin: 2.5rem auto; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.1rem 1.2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle glow effect on cards */
+    .stat::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--alt));
+      opacity: 0.8;
+    }
+
+    .stat small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat h2 { margin: 0; font-size: 1.8rem; color: #ffffff; }
+    
+    /* Updated Card Colors for Dark Mode */
+    .stat.c1 { background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, var(--surface) 100%); }
+    .stat.c2 { background: linear-gradient(180deg, rgba(6, 182, 212, 0.05) 0%, var(--surface) 100%); }
+    .stat.c3 { background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, var(--surface) 100%); }
+    .stat.c4 { background: linear-gradient(180deg, rgba(245, 158, 11, 0.05) 0%, var(--surface) 100%); } /* Kept Gold accent for Topper */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .bar {
+      width: 100%;
+      min-width: 90px;
+      height: 8px;
+      background: #334155;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--alt));
+      border-radius: 999px;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: 9px;
+      padding: 0.6rem 1.05rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn:hover { 
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn.alt { 
+      background: var(--alt); 
+      box-shadow: 0 2px 4px rgba(6, 182, 212, 0.2);
+    }
+    .btn.alt:hover {
+      background: var(--alt-hover);
+      box-shadow: 0 4px 8px rgba(6, 182, 212, 0.3);
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="file"],
+    input:not([type]) {
+      width: 100%;
+      padding: 0.65rem 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      font-size: 0.92rem;
+      background: #0f172a;
+      color: var(--text);
+      margin-bottom: 0.85rem;
+      transition: border-color 0.2s;
+    }
+
+    input::placeholder { color: #64748b; }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+      color: var(--muted);
+    }
+
+    .msg {
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      font-size: 0.92rem;
+      border: 1px solid transparent;
+    }
+
+    .msg.warn { background: var(--banner-bg); border-color: var(--banner-border); color: var(--banner-text); }
+    .msg.error { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #fca5a5; }
+    .msg.info, .msg.success { background: rgba(6, 182, 212, 0.15); border-color: #06b6d4; color: #67e8f9; }
+
+    .tag {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .tag.pass { background: var(--pass-bg); color: var(--pass-text); }
+    .tag.fail { background: var(--fail-bg); color: var(--fail-text); }
+
+    .rowlink {
+      color: var(--alt);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .rowlink:hover { text-decoration: underline; text-shadow: 0 0 8px rgba(6,182,212,0.5); }
+
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .charts img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+      border: 1px solid var(--border);
+    }
+
+    .view-only-note {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+<nav>
+  <b class="brand">
+
+    <span class="brand-mark">R</span>
+
+    <span class="brand-copy">
+      <strong>RELIANCE</strong>
+      <small>RESULT ANALYSIS PORTAL</small>
+    </span>
+
+  </b>
+
+  {% if user %}
+    <a href="/">Dashboard</a>
+    <a href="/upload">Upload</a>
+    <a href="/students">Students</a>
+    <a href="/reports">Reports &amp; Email</a>
+    <a href="/share">QR</a>
+    <a href="/logout" style="color: var(--fail-text)">
+      Logout ({{ user }})
+    </a>
+  {% endif %}
+</nav>
+<main>
+  {% if viewing_old %}
+    <div class="old-banner" role="status">
+      <span>
+        <strong>Viewing older upload:</strong> {{ old_name }}
+        {% if old_date %}({{ old_date }}){% endif %} — showing historical data rather than the latest upload.
+      </span>
+    </div>
+  {% endif %}
+  {% with m = get_flashed_messages(with_categories=true) %}
+    {% for c, t in m %}
+      <div class="msg {{ c }}">{{ t }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block body %}{% endblock %}
+</main>
+</body>
+</html>

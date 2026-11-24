@@ -5,6 +5,8 @@ import os
 import re
 import qrcode
 import sqlite3
+import  shutil
+from datetime import datetime
 from functools import wraps
 from io import BytesIO
 
@@ -90,6 +92,17 @@ def init_db():
                 at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        c.execute("CREATE TABLE IF NOT EXISTS uploads(id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                  "filename TEXT, students INTEGER, uploaded_at TEXT)")
+        if "upload_id" not in [r[1] for r in c.execute("PRAGMA table_info(email_log)")]:
+            c.execute("ALTER TABLE email_log ADD COLUMN upload_id INTEGER")
+        if (c.execute("SELECT 1 FROM sqlite_master WHERE name='results'").fetchone()
+                and not c.execute("SELECT 1 FROM uploads").fetchone()):
+            n = c.execute("SELECT COUNT(*) FROM results").fetchone()[0]
+            uid = c.execute("INSERT INTO uploads(filename,students,uploaded_at) VALUES(?,?,?)",
+                            ("Earlier upload", n, now_text())).lastrowid
+            c.execute(f"ALTER TABLE results RENAME TO results_{uid}")
+            c.execute("UPDATE email_log SET upload_id=? WHERE upload_id IS NULL", (uid,))
 
         # Create a default admin account only if no teacher exists
         if not c.execute("SELECT 1 FROM teachers").fetchone():
@@ -108,18 +121,34 @@ def init_db():
 # Data loading and helper functions
 # --------------------------------------------------
 
+def selected_upload():
+    with db() as c:
+        latest = c.execute("SELECT MAX(id) FROM uploads").fetchone()[0]
+        if latest is None:
+            return None, None
+        want = session.get("view_upload")
+        if want and c.execute("SELECT 1 FROM uploads WHERE id=?", (want,)).fetchone():
+            return want, latest
+    return latest, latest
+
+def uploads_history():
+    uid, _ = selected_upload()
+    with db() as c:
+        rows = c.execute("SELECT id, filename, students, uploaded_at FROM uploads ORDER BY id DESC").fetchall()
+    return [dict(id=r[0], filename=r[1], students=r[2], at=r[3], viewing=(r[0] == uid), latest=(i == 0))
+            for i, r in enumerate(rows)]
+
 def load():
+    uid, _ = selected_upload()
+    if uid is None:
+        return None, []
     try:
         with db() as c:
-            df = pd.read_sql("SELECT * FROM results", c)
-
+            df = pd.read_sql(f"SELECT * FROM results_{int(uid)}", c)
     except Exception:
         return None, []
-
-    subjects = [x for x in df.columns if x not in IDS]
-
-    return df, subjects
-
+    return df, [x for x in df.columns if x not in IDS]
+   
 
 def safe(t):
     return re.sub(r"[^A-Za-z0-9_-]+", "_", str(t)).strip("_")
@@ -215,18 +244,8 @@ def validate(file):
     for r in raw[raw["Roll"].duplicated()]["Roll"]:
         errs.append(f"Duplicate roll number: {r}")
 
-    # Check email addresses (optional)
-    if "Email" in raw.columns:
-        emails = raw["Email"].fillna("").astype(str).str.strip()
-
-        invalid_emails = raw[
-            (emails != "") & (~emails.str.match(EMAIL_RE))
-        ]
-
-        for _, r in invalid_emails.iterrows():
-            errs.append(
-                f"Invalid email for roll {r['Roll']} ({r['Name']})"
-            )
+    # Check email addresses
+    invalid_emails=raw["Email"] = raw["Email"].fillna("").astype(str).str.strip()
 
     # Check empty or invalid marks
     n_empty = int(raw[subs].isna().sum().sum())
@@ -258,10 +277,17 @@ def validate(file):
 
 @app.context_processor
 def inject():
-    return {
-        "brand": BRAND,
-        "user": session.get("user")
-    }
+    ctx = {"brand": BRAND, "user": session.get("user"), "viewing_old": False}
+    if "user" in session:
+        uid, latest = selected_upload()
+        if uid and uid != latest:
+            with db() as c:
+                name, at = c.execute(
+                    "SELECT filename, uploaded_at FROM uploads WHERE id=?", (uid,)
+                ).fetchone()
+            ctx.update(viewing_old=True, old_name=name, old_date=at)
+    return ctx
+
 
 
 # --------------------------------------------------
@@ -306,7 +332,6 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-
     df, subs = load()
 
     if df is None:
@@ -331,8 +356,34 @@ def dashboard():
         info=info,
         stats=stats,
         max_marks=sra.MAX_MARKS,
-        pass_percent=PASS_PERCENT
+        pass_percent=PASS_PERCENT,
+        history=uploads_history(),
     )
+
+
+@app.route("/view/<which>")
+@login_required
+def view_upload(which):
+    if which == "latest":
+        session.pop("view_upload", None)
+    elif which.isdigit():
+        session["view_upload"] = int(which)
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/uploads/delete-latest", methods=["POST"])
+@login_required
+def delete_latest():
+    _, latest = selected_upload()
+    if latest is not None:
+        with db() as c:
+            c.execute(f"DROP TABLE IF EXISTS results_{int(latest)}")
+            c.execute("DELETE FROM uploads WHERE id=?", (latest,))
+            c.execute("DELETE FROM email_log WHERE upload_id=?", (latest,))
+        shutil.rmtree(os.path.join(PDF_DIR, str(latest)), ignore_errors=True)
+        session.pop("view_upload", None)
+        flash("Latest upload deleted.", "ok")
+    return redirect(url_for("dashboard"))
 
 
 # --------------------------------------------------
@@ -358,21 +409,15 @@ def upload():
             if not errors:
 
                 with db() as c:
-                    df.to_sql(
-                        "results",
-                        c,
-                        if_exists="replace",
-                        index=False
-                    )
+                    uid = c.execute("INSERT INTO uploads(filename,students,uploaded_at) VALUES(?,?,?)",
+                        (f.filename, len(df), now_text())).lastrowid
+                    df.to_sql(f"results_{uid}", c, index=False)
+                    session.pop("view_upload", None)
 
                     c.execute("DELETE FROM email_log")
 
                 # Remove old generated PDFs
-                for p in os.listdir(PDF_DIR):
-                    file_path = os.path.join(PDF_DIR, p)
-
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
+                
 
                 flash(
                     f"Uploaded {len(df)} students.",
@@ -421,7 +466,7 @@ def students():
 @app.route("/student/<roll>")
 @login_required
 def student(roll):
-
+    uid, _ = selected_upload()
     df, subs = load()
 
     if df is None or roll not in set(df["Roll"]):
@@ -437,7 +482,7 @@ def student(roll):
 
     for s in subs:
 
-        fn = f"{safe(roll)}_{safe(s)}.png"
+        fn = f"{uid}_{safe(roll)}_{safe(s)}.png"
 
         sra.make_chart(
             df,
@@ -468,12 +513,11 @@ def student(roll):
 # PDF generation
 # --------------------------------------------------
 
-def pdf_for(df, subs, stats, row):
+def pdf_for(uid,df, subs, stats, row):
 
-    p = os.path.join(
-        PDF_DIR,
-        f"{safe(row['Roll'])}.pdf"
-    )
+    p = os.path.join(PDF_DIR, str(uid), f"{safe(row['Roll'])}.pdf")
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    
 
     sra.build_pdf(df, subs, stats, row, p)
 
@@ -483,7 +527,7 @@ def pdf_for(df, subs, stats, row):
 @app.route("/pdf/<roll>")
 @login_required
 def pdf(roll):
-
+    uid, _ = selected_upload()
     df, subs = load()
 
     if df is None or roll not in set(df["Roll"]):
@@ -492,6 +536,7 @@ def pdf(roll):
     row = df[df["Roll"] == roll].iloc[0]
 
     report_path = pdf_for(
+        uid ,
         df,
         subs,
         sra.subject_stats(df, subs),
@@ -511,26 +556,33 @@ def pdf(roll):
 
 @app.route("/reports", methods=["GET", "POST"])
 @login_required
+
 def reports():
 
     df, subs = load()
+    uid, latest = selected_upload()
+    can_send = (uid == latest)
 
     if df is None:
         return redirect(url_for("upload"))
 
     if request.method == "POST":
 
+        if not can_send:
+            flash("This is an older upload (view only).", "error")
+            return redirect(url_for("reports"))
+
         stats = sra.subject_stats(df, subs)
 
         action = request.form.get("action", "").strip()
         test_to = request.form.get("test_to", "").strip()
 
-        # Brevo SMTP credentials from .env
+        # Brevo SMTP credentials
         smtp_login = os.getenv("BREVO_SMTP_LOGIN")
         smtp_key = os.getenv("BREVO_SMTP_KEY")
         mail_from = os.getenv("MAIL_FROM")
 
-        # Validate email configuration before sending
+        # Validate email configuration
         if action == "send" and not (
             smtp_login and smtp_key and mail_from
         ):
@@ -541,71 +593,86 @@ def reports():
             )
             return redirect(url_for("reports"))
 
-        sent = 0
-        failed = 0
+        sent = failed = skipped = 0
 
-        # Generate PDFs for all students.
-        # If test_to is provided, send only the first student's
-        # report to that test address.
+        # Generate PDFs for all students
         for index, (_, row) in enumerate(df.iterrows()):
 
-            p = pdf_for(df, subs, stats, row)
+            p = pdf_for(uid, df, subs, stats, row)
 
             if action != "send":
                 continue
 
+            # Test email mode
             if test_to:
-                # Test mode: send only one email
                 if index > 0:
                     continue
 
                 to = test_to
 
             else:
-                # Normal mode: send to each student's email
-                to = str(row["Email"]).strip()
+                # Normal mode: student email may be blank
+                to = str(row.get("Email", "")).strip()
 
-            try:
+            # Skip missing or invalid email addresses
+            if not to or "@" not in to:
+                status = "skipped: no valid email id"
+                skipped += 1
 
-                sra.send_mail(
-                    to,
-                    row["Name"],
-                    p,
-                    smtp_login,
-                    smtp_key,
-                    from_addr=mail_from,
-                    body=(
-                        f"Dear {row['Name']},\n\n"
-                        "Please find attached your subject-wise "
-                        "statistical result analysis.\n\n"
-                        f"Regards,\n"
-                        f"{INSTITUTION or 'Results Team'}"
+            else:
+                try:
+                    sra.send_mail(
+                        to,
+                        row["Name"],
+                        p,
+                        smtp_login,
+                        smtp_key,
+                        from_addr=mail_from,
+                        body=(
+                            f"Dear {row['Name']},\n\n"
+                            "Please find attached your subject-wise "
+                            "statistical result analysis.\n\n"
+                            f"Regards,\n"
+                            f"{INSTITUTION or 'Results Team'}"
+                        )
                     )
-                )
 
-                status = "sent"
-                sent += 1
+                    status = "sent"
+                    sent += 1
 
-            except Exception as ex:
-
-                status = f"failed: {ex}"
-                failed += 1
+                except Exception as ex:
+                    status = f"failed: {ex}"
+                    failed += 1
 
             # Save email status in database
             with db() as c:
                 c.execute(
                     """
                     INSERT INTO email_log
-                    (roll, name, sent_to, status)
-                    VALUES (?, ?, ?, ?)
+                    (upload_id, roll, name, sent_to, status)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
                     (
+                        uid,
                         row["Roll"],
                         row["Name"],
                         to,
                         status
                     )
                 )
+
+        # Fetch recent email logs after processing
+        with db() as c:
+            log = c.execute(
+                """
+                SELECT name, sent_to, status, at
+                FROM email_log
+                WHERE upload_id = ?
+                ORDER BY id DESC
+                LIMIT 100
+                """,
+                (uid,)
+            ).fetchall()
 
         if action != "send":
 
@@ -619,12 +686,12 @@ def reports():
             if test_to:
                 message = (
                     f"Test email sent: {sent}, "
-                    f"failed: {failed}."
+                    f"failed: {failed}, skipped: {skipped}."
                 )
             else:
                 message = (
                     f"Emails sent: {sent}, "
-                    f"failed: {failed}."
+                    f"failed: {failed}, skipped: {skipped}."
                 )
 
             flash(
@@ -633,6 +700,7 @@ def reports():
             )
 
         return redirect(url_for("reports"))
+
 
     # Fetch recent email history
     with db() as c:
@@ -649,6 +717,7 @@ def reports():
     return render_template(
         "reports.html",
         log=log,
+        can_send=can_send,
         n=len(df)
     )
 
@@ -691,7 +760,8 @@ def qr():
 # --------------------------------------------------
 # Application startup
 # --------------------------------------------------
-
+def now_text():
+    return datetime.now().strftime("%d %b %Y, %I:%M %p")
 init_db()
 
 if __name__ == "__main__":
@@ -701,4 +771,3 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=5000
     )
-
