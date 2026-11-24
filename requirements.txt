@@ -6,3 +6,4 @@ numpy
 matplotlib
 reportlab
 openpyxl
+python-dotenv
